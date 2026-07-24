@@ -137,15 +137,19 @@ export class ChatService {
   async sendMessage(
     userId: string,
     conversationId: string,
-    content: string,
+    content?: string,
     mediaUrl?: string | null,
   ): Promise<MessageEntity> {
     await this.ensureMember(userId, conversationId);
+    const text = (content ?? '').trim();
+    if (!text && !mediaUrl) {
+      throw new ForbiddenException('Tin nhắn rỗng');
+    }
     const message = await this.prisma.message.create({
       data: {
         conversationId,
         senderId: userId,
-        content,
+        content: text,
         mediaUrl: mediaUrl ?? null,
       },
       include: { sender: true },

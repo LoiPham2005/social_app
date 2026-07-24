@@ -8,6 +8,7 @@ import { Avatar } from '@/components/avatar';
 import { timeAgo } from '@/lib/format';
 import { useAuthStore } from '@/store/auth-store';
 import { CommentSection } from './comment-section';
+import { REACTIONS, ReactionPicker, reactionOf } from './reactions';
 import { deletePost, reactToPost, unreactToPost } from './api';
 
 const PRIVACY_ICON: Record<string, string> = {
@@ -47,14 +48,34 @@ export function PostCard({ post }: { post: PostEntity }) {
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const [showComments, setShowComments] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   const liked = post.myReaction != null;
+  const myReaction = reactionOf(post.myReaction);
 
-  const likeMutation = useMutation({
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
+    queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+  };
+
+  const reactMutation = useMutation({
+    mutationFn: (type: ReactionType) =>
+      post.myReaction === type
+        ? unreactToPost(post.id)
+        : reactToPost(post.id, type),
+    onSuccess: invalidate,
+  });
+
+  const toggleLike = useMutation({
     mutationFn: () =>
       liked ? unreactToPost(post.id) : reactToPost(post.id, ReactionType.LIKE),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
+    onSuccess: invalidate,
   });
+
+  // Các emoji xuất hiện trên bài (để hiện ở dòng tóm tắt).
+  const summaryEmojis = REACTIONS.filter(
+    (r) => (post.reactions[r.type] ?? 0) > 0,
+  ).map((r) => r.emoji);
 
   const deleteMutation = useMutation({
     mutationFn: () => deletePost(post.id),
@@ -116,8 +137,15 @@ export function PostCard({ post }: { post: PostEntity }) {
           <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
             {post.reactionCount > 0 && (
               <span className="flex items-center gap-1">
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[10px]">
-                  👍
+                <span className="flex -space-x-1">
+                  {summaryEmojis.slice(0, 3).map((e) => (
+                    <span
+                      key={e}
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700"
+                    >
+                      {e}
+                    </span>
+                  ))}
                 </span>
                 {post.reactionCount}
               </span>
@@ -134,18 +162,33 @@ export function PostCard({ post }: { post: PostEntity }) {
         )}
 
         <div className="flex border-t border-gray-100 py-1 dark:border-gray-800">
-          <button
-            onClick={() => likeMutation.mutate()}
-            disabled={likeMutation.isPending}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition hover:bg-gray-50 dark:hover:bg-gray-800 ${
-              liked ? 'text-brand' : 'text-gray-500'
-            }`}
+          {/* Nút Thích + bảng chọn cảm xúc khi rê chuột */}
+          <div
+            className="relative flex-1"
+            onMouseEnter={() => setShowPicker(true)}
+            onMouseLeave={() => setShowPicker(false)}
           >
-            <span className={liked ? 'inline-block animate-pop-in' : ''}>
-              👍
-            </span>
-            Thích
-          </button>
+            {showPicker && (
+              <ReactionPicker
+                onPick={(type) => {
+                  setShowPicker(false);
+                  reactMutation.mutate(type);
+                }}
+              />
+            )}
+            <button
+              onClick={() => toggleLike.mutate()}
+              disabled={toggleLike.isPending || reactMutation.isPending}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                liked ? myReaction.color : 'text-gray-500'
+              }`}
+            >
+              <span className={liked ? 'inline-block animate-pop-in' : ''}>
+                {liked ? myReaction.emoji : '👍'}
+              </span>
+              {liked ? myReaction.label : 'Thích'}
+            </button>
+          </div>
           <button
             onClick={() => setShowComments((v) => !v)}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold text-gray-500 transition hover:bg-gray-50 dark:hover:bg-gray-800"

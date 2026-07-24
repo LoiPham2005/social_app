@@ -18,7 +18,12 @@ import {
   type StorageProvider,
 } from './storage.provider';
 
-const ALLOWED_FOLDERS: UploadFolder[] = ['posts', 'avatars', 'covers'];
+const ALLOWED_FOLDERS: UploadFolder[] = [
+  'posts',
+  'avatars',
+  'covers',
+  'messages',
+];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 @ApiTags('uploads')

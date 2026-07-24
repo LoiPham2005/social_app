@@ -259,21 +259,25 @@
 >
 > **Còn nợ kỹ thuật (làm dần):** xác thực email, quên mật khẩu, đăng nhập Google.
 
-### 🌐 Giai đoạn 2 — WEB Realtime
-6. ✅ **Chat 1-1 realtime** — NestJS WebSocket Gateway (Socket.IO, auth JWT) + REST lịch sử/hội thoại + UI chat (tin realtime, typing, unread badge)
+### 🌐 Giai đoạn 2 — WEB Realtime — ✅ HOÀN TẤT
+6. ✅ **Chat 1-1 realtime** — NestJS WebSocket Gateway (Socket.IO, auth JWT) + REST lịch sử/hội thoại + UI chat (tin realtime, typing, unread badge, gửi ảnh)
 7. ✅ **Notification realtime** — like/comment/kết bạn → thông báo realtime, chuông + badge + dropdown + trang /notifications
-8. ⬜ **Web Push** — thông báo khi không mở tab  ← còn lại
+8. ✅ **Web Push** — Service Worker + VAPID (tự sinh) + bảng push subscription; thông báo đẩy cả khi đóng tab
 
 > ✨ **UI đã nâng cấp**: TopNav dùng chung (icon + active state + badge + chuông + avatar),
-> đồng bộ toàn app; trang đăng nhập/đăng ký nền gradient.
+> đồng bộ toàn app; trang đăng nhập/đăng ký nền gradient; theme + shadow + skeleton +
+> empty state; PostCard làm lại (lưới ảnh, reaction bar); trang cá nhân card nổi.
+>
+> ✨ **Tính năng thêm**: thả **6 loại cảm xúc** (👍❤️😆😮😢😡) có picker + đếm theo loại;
+> **gửi ảnh trong chat** (hiển thị trong bong bóng + "📷 Hình ảnh" ở danh sách).
 
 > Ghi chú: chat hiện chạy single-instance (in-memory rooms). Khi scale nhiều
 > server mới cần Redis adapter cho Socket.IO (bật REDIS_ENABLED + thêm adapter).
 
 ### 🌐 Giai đoạn 3 — WEB hoàn thiện
-9. Search, Settings, chat nhóm
-10. Story / tính năng nâng cao
-11. Tối ưu hiệu năng, feed ranking, phân trang cursor
+9. 🟡 **Search** ✅ (người dùng + bài viết), **Dark mode** ✅ (sáng/tối/hệ thống) — còn Settings, chat nhóm
+10. ⬜ Story / tính năng nâng cao
+11. ⬜ Tối ưu hiệu năng, feed ranking, phân trang cursor
 
 ### 📱 Giai đoạn 4 — MOBILE (Flutter, cắm vào API có sẵn)
 12. Flutter app dùng lại toàn bộ NestJS API — làm lại lớp UI + state (Riverpod)

@@ -71,7 +71,9 @@ function MessagesContent() {
                       : 'text-gray-400'
                   }`}
                 >
-                  {c.lastMessage?.content ?? 'Bắt đầu trò chuyện…'}
+                  {c.lastMessage
+                    ? c.lastMessage.content || '📷 Hình ảnh'
+                    : 'Bắt đầu trò chuyện…'}
                 </p>
               </div>
               {c.unreadCount > 0 && (

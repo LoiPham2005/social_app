@@ -15,6 +15,13 @@ export async function fetchFeed(cursor?: string): Promise<Paginated<PostEntity>>
   return data;
 }
 
+export async function searchPosts(q: string): Promise<PostEntity[]> {
+  const { data } = await api.get<PostEntity[]>('/posts/search', {
+    params: { q },
+  });
+  return data;
+}
+
 export async function createPost(dto: CreatePostDto): Promise<PostEntity> {
   const { data } = await api.post<PostEntity>('/posts', dto);
   return data;

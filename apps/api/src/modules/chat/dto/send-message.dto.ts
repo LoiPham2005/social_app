@@ -1,13 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import type { SendMessageDto as ISendMessageDto } from '@social/shared';
 
 export class SendMessageDto implements ISendMessageDto {
-  @ApiProperty({ example: 'Chào bạn!' })
+  @ApiPropertyOptional({ example: 'Chào bạn!' })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(5000)
-  content!: string;
+  content?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

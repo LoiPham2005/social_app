@@ -66,6 +66,7 @@ model User {
   notifications       Notification[]         @relation("Recipient")
   actedNotifications  Notification[]         @relation("Actor")
   refreshTokens       RefreshToken[]
+  pushSubscriptions   PushSubscription[]
 
   @@index([createdAt])
 }
@@ -77,6 +78,19 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -7,14 +7,25 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { toPublicUser } from '../../common/mappers/user.mapper';
 import { ChatGateway } from '../chat/chat.gateway';
+import { PushService } from '../push/push.service';
 
 type NotificationWithActor = Notification & { actor: User };
+
+const PUSH_TEXT: Record<NotificationType, string> = {
+  [NotificationType.LIKE]: 'đã thích bài viết của bạn',
+  [NotificationType.COMMENT]: 'đã bình luận bài viết của bạn',
+  [NotificationType.FRIEND_REQUEST]: 'đã gửi cho bạn lời mời kết bạn',
+  [NotificationType.FRIEND_ACCEPT]: 'đã chấp nhận lời mời kết bạn',
+  [NotificationType.MESSAGE]: 'đã gửi cho bạn một tin nhắn',
+  [NotificationType.TAG]: 'đã nhắc đến bạn',
+};
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: ChatGateway,
+    private readonly push: PushService,
   ) {}
 
   /** Tạo thông báo + đẩy realtime tới người nhận. Bỏ qua nếu tự thao tác với mình. */
@@ -43,6 +54,13 @@ export class NotificationsService {
     );
     const count = await this.unreadCount(recipientId);
     this.gateway.emitToUser(recipientId, 'notification:count', { count });
+
+    // Web Push (khi tab đóng / không mở app).
+    void this.push.sendToUser(recipientId, {
+      title: 'Social App',
+      body: `${notification.actor.fullName} ${PUSH_TEXT[type]}`,
+      url: '/notifications',
+    });
   }
 
   async list(userId: string): Promise<NotificationEntity[]> {

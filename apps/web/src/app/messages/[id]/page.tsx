@@ -13,6 +13,7 @@ import {
   markConversationRead,
   sendMessageRest,
 } from '@/features/chat/api';
+import { uploadImage } from '@/features/uploads/api';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -22,7 +23,9 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
   const [messages, setMessages] = useState<MessageEntity[]>([]);
   const [text, setText] = useState('');
   const [otherTyping, setOtherTyping] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   // Lịch sử tin nhắn
@@ -95,6 +98,18 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
     await sendMessageRest(conversationId, content); // socket 'message:new' sẽ append
   }
 
+  async function sendImage(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadImage(file, 'messages');
+      await sendMessageRest(conversationId, '', url);
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex items-center gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
@@ -122,15 +137,25 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
               className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                className={`max-w-[75%] overflow-hidden rounded-2xl ${
                   mine
                     ? 'bg-brand text-white'
                     : 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words text-sm">
-                  {m.content}
-                </p>
+                {m.mediaUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.mediaUrl}
+                    alt=""
+                    className="max-h-72 w-full object-cover"
+                  />
+                )}
+                {m.content && (
+                  <p className="whitespace-pre-wrap break-words px-4 py-2 text-sm">
+                    {m.content}
+                  </p>
+                )}
               </div>
             </div>
           );
@@ -148,8 +173,24 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
           e.preventDefault();
           void send();
         }}
-        className="flex gap-2 border-t border-gray-200 p-3 dark:border-gray-800"
+        className="flex items-center gap-2 border-t border-gray-200 p-3 dark:border-gray-800"
       >
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => sendImage(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          disabled={uploading}
+          title="Gửi ảnh"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-gray-500 transition hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800"
+        >
+          {uploading ? '⏳' : '🖼️'}
+        </button>
         <input
           value={text}
           onChange={(e) => handleTyping(e.target.value)}

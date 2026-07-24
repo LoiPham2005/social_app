@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '@/components/avatar';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { fetchConversations } from '@/features/chat/api';
 import { NotificationBell } from '@/features/notifications/notification-bell';
 import { getSocket } from '@/lib/socket';
@@ -84,6 +85,14 @@ export function TopNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/search"
+            title="Tìm kiếm"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-lg transition hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+          >
+            🔍
+          </Link>
+          <ThemeToggle />
           <NotificationBell />
           <Link
             href={user ? `/u/${user.username}` : '/feed'}

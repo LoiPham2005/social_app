@@ -39,7 +39,7 @@ export class PostsService {
       },
       include: { author: true },
     });
-    return this.mapPost(post, 0, 0, null);
+    return this.mapPost(post, 0, {}, 0, null);
   }
 
   async getFeed(
@@ -102,6 +102,28 @@ export class PostsService {
     const nextCursor = hasMore ? pageItems[pageItems.length - 1].id : null;
     const items = await this.attachCounts(viewerId, pageItems);
     return { items, nextCursor };
+  }
+
+  /** Tìm bài viết theo nội dung, chỉ trả bài người xem được phép thấy. */
+  async searchPosts(viewerId: string, query: string): Promise<PostEntity[]> {
+    const q = query.trim();
+    if (!q) return [];
+
+    const friendIds = await this.getFriendIds(viewerId);
+    const posts = await this.prisma.post.findMany({
+      where: {
+        content: { contains: q, mode: 'insensitive' },
+        OR: [
+          { authorId: viewerId },
+          { authorId: { in: friendIds } },
+          { privacy: PostPrivacy.PUBLIC },
+        ],
+      },
+      include: { author: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    return this.attachCounts(viewerId, posts);
   }
 
   async getPost(userId: string, postId: string): Promise<PostEntity> {
@@ -225,7 +247,7 @@ export class PostsService {
 
     const [reactionGroups, commentGroups, myReactions] = await Promise.all([
       this.prisma.reaction.groupBy({
-        by: ['targetId'],
+        by: ['targetId', 'type'],
         where: { targetType: ReactionTarget.POST, targetId: { in: postIds } },
         _count: { _all: true },
       }),
@@ -244,9 +266,15 @@ export class PostsService {
       }),
     ]);
 
-    const reactionCount = new Map(
-      reactionGroups.map((g) => [g.targetId, g._count._all]),
-    );
+    // Gom số lượng theo từng loại cảm xúc cho mỗi bài.
+    const breakdown = new Map<string, Partial<Record<ReactionType, number>>>();
+    const totals = new Map<string, number>();
+    for (const g of reactionGroups) {
+      const map = breakdown.get(g.targetId) ?? {};
+      map[g.type as ReactionType] = g._count._all;
+      breakdown.set(g.targetId, map);
+      totals.set(g.targetId, (totals.get(g.targetId) ?? 0) + g._count._all);
+    }
     const commentCount = new Map(
       commentGroups.map((g) => [g.postId, g._count._all]),
     );
@@ -255,7 +283,8 @@ export class PostsService {
     return posts.map((p) =>
       this.mapPost(
         p,
-        reactionCount.get(p.id) ?? 0,
+        totals.get(p.id) ?? 0,
+        breakdown.get(p.id) ?? {},
         commentCount.get(p.id) ?? 0,
         (mine.get(p.id) as ReactionType | undefined) ?? null,
       ),
@@ -265,6 +294,7 @@ export class PostsService {
   private mapPost(
     post: PostWithAuthor,
     reactionCount: number,
+    reactions: Partial<Record<ReactionType, number>>,
     commentCount: number,
     myReaction: ReactionType | null,
   ): PostEntity {
@@ -275,6 +305,7 @@ export class PostsService {
       mediaUrls: post.mediaUrls,
       privacy: post.privacy as PostPrivacy,
       reactionCount,
+      reactions,
       commentCount,
       myReaction,
       createdAt: post.createdAt.toISOString(),

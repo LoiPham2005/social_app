@@ -64,6 +64,8 @@ export interface PostEntity {
   mediaUrls: string[];
   privacy: PostPrivacy;
   reactionCount: number;
+  /** Số lượng theo từng loại cảm xúc, ví dụ { LIKE: 3, LOVE: 1 }. */
+  reactions: Partial<Record<ReactionType, number>>;
   commentCount: number;
   myReaction: ReactionType | null;
   createdAt: string;
@@ -149,7 +151,7 @@ export interface ConversationSummary {
 }
 
 export interface SendMessageDto {
-  content: string;
+  content?: string;
   mediaUrl?: string | null;
 }
 
@@ -170,7 +172,7 @@ export interface UploadResult {
   url: string;
 }
 
-export type UploadFolder = 'posts' | 'avatars' | 'covers';
+export type UploadFolder = 'posts' | 'avatars' | 'covers' | 'messages';
 
 // ---- Common ----
 export interface Paginated<T> {

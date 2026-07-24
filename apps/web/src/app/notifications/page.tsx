@@ -15,6 +15,7 @@ import {
   notificationIcon,
   notificationText,
 } from '@/features/notifications/helpers';
+import { EnablePushButton } from '@/features/push/enable-push-button';
 import { timeAgo } from '@/lib/format';
 
 function NotificationsContent() {
@@ -33,14 +34,17 @@ function NotificationsContent() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
       <TopNav />
       <main className="mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Thông báo</h1>
-          <button
-            onClick={() => markAllNotificationsRead().then(refresh)}
-            className="text-sm font-medium text-brand hover:underline"
-          >
-            Đánh dấu tất cả đã đọc
-          </button>
+          <div className="flex items-center gap-2">
+            <EnablePushButton />
+            <button
+              onClick={() => markAllNotificationsRead().then(refresh)}
+              className="text-sm font-medium text-brand hover:underline"
+            >
+              Đánh dấu đã đọc
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-900">

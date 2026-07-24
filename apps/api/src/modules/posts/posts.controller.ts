@@ -52,6 +52,14 @@ export class PostsController {
     return this.postsService.getFeed(userId, cursor);
   }
 
+  @Get('search')
+  search(
+    @CurrentUser('id') userId: string,
+    @Query('q') q: string,
+  ): Promise<PostEntity[]> {
+    return this.postsService.searchPosts(userId, q ?? '');
+  }
+
   @Get('user/:userId')
   userPosts(
     @CurrentUser('id') viewerId: string,
