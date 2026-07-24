@@ -1,0 +1,21 @@
+{
+  "name": "social-app",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @social/shared build && pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:api": "pnpm --filter @social/api start:dev",
+    "dev:web": "pnpm --filter @social/web dev",
+    "build": "pnpm -r build",
+    "db:up": "docker compose up -d",
+    "db:up:redis": "COMPOSE_PROFILES=redis docker compose up -d",
+    "db:down": "docker compose down",
+    "prisma:migrate": "pnpm --filter @social/api prisma:migrate",
+    "prisma:generate": "pnpm --filter @social/api prisma:generate",
+    "prisma:studio": "pnpm --filter @social/api prisma:studio"
+  }
+}
