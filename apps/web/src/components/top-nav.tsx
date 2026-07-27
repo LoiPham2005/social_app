@@ -5,11 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '@/components/avatar';
+import { LogoMark } from '@/components/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { fetchConversations } from '@/features/chat/api';
 import { NotificationBell } from '@/features/notifications/notification-bell';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/store/auth-store';
+import { usePresenceStore } from '@/store/presence-store';
 
 const NAV = [
   { href: '/feed', icon: '🏠', label: 'Bảng tin' },
@@ -21,7 +23,6 @@ export function TopNav() {
   const pathname = usePathname();
   const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
 
   // Tổng số tin nhắn chưa đọc (badge trên mục Tin nhắn).
   const conversations = useQuery({
@@ -31,14 +32,21 @@ export function TopNav() {
   const unreadMessages =
     conversations.data?.reduce((sum, c) => sum + c.unreadCount, 0) ?? 0;
 
-  // Đảm bảo socket kết nối app-wide + cập nhật badge tin nhắn realtime.
+  // Đảm bảo socket kết nối app-wide + cập nhật badge tin nhắn + trạng thái online.
   useEffect(() => {
     const socket = getSocket();
     const onUpdate = () =>
       qc.invalidateQueries({ queryKey: ['conversations'] });
+    const onList = (ids: string[]) => usePresenceStore.getState().setList(ids);
+    const onPresence = (p: { userId: string; online: boolean }) =>
+      usePresenceStore.getState().setOnline(p.userId, p.online);
     socket.on('conversation:updated', onUpdate);
+    socket.on('presence:list', onList);
+    socket.on('presence', onPresence);
     return () => {
       socket.off('conversation:updated', onUpdate);
+      socket.off('presence:list', onList);
+      socket.off('presence', onPresence);
     };
   }, [qc]);
 
@@ -49,10 +57,8 @@ export function TopNav() {
     <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/80">
       <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
         <Link href="/feed" className="mr-1 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-lg font-black text-white">
-            S
-          </span>
-          <span className="hidden text-lg font-extrabold text-brand sm:block">
+          <LogoMark size={36} />
+          <span className="hidden text-lg font-extrabold tracking-tight text-brand sm:block">
             Social
           </span>
         </Link>
@@ -101,13 +107,13 @@ export function TopNav() {
           >
             <Avatar name={user?.fullName ?? '?'} url={user?.avatarUrl} size={36} />
           </Link>
-          <button
-            onClick={() => logout()}
-            title="Đăng xuất"
-            className="hidden rounded-xl px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 sm:block"
+          <Link
+            href="/settings"
+            title="Cài đặt"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-lg transition hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
           >
-            Thoát
-          </button>
+            ⚙️
+          </Link>
         </div>
       </div>
     </header>

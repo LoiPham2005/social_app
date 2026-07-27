@@ -1,4 +1,5 @@
 import type {
+  ConversationDetail,
   ConversationSummary,
   MessageEntity,
   Paginated,
@@ -15,6 +16,28 @@ export async function getOrCreateConversation(
 ): Promise<{ id: string }> {
   const { data } = await api.post<{ id: string }>(`/conversations/with/${userId}`);
   return data;
+}
+
+export async function createGroup(
+  name: string,
+  memberIds: string[],
+): Promise<{ id: string }> {
+  const { data } = await api.post<{ id: string }>('/conversations/group', {
+    name,
+    memberIds,
+  });
+  return data;
+}
+
+export async function fetchConversationDetail(
+  id: string,
+): Promise<ConversationDetail> {
+  const { data } = await api.get<ConversationDetail>(`/conversations/${id}`);
+  return data;
+}
+
+export async function leaveGroup(id: string): Promise<void> {
+  await api.post(`/conversations/${id}/leave`);
 }
 
 export async function fetchMessages(

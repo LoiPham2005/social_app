@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useToast } from '@/components/dialog-provider';
 import { getPushPublicKey, subscribePush, unsubscribePush } from './api';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -16,6 +17,7 @@ type State = 'unsupported' | 'off' | 'on' | 'working';
 
 export function EnablePushButton() {
   const [state, setState] = useState<State>('off');
+  const toast = useToast();
 
   useEffect(() => {
     if (
@@ -39,7 +41,7 @@ export function EnablePushButton() {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setState('off');
-        alert('Bạn cần cho phép thông báo trong trình duyệt.');
+        toast('Bạn cần cho phép thông báo trong trình duyệt.', 'error');
         return;
       }
       const reg = await navigator.serviceWorker.register('/sw.js');
@@ -51,10 +53,11 @@ export function EnablePushButton() {
       });
       await subscribePush(sub.toJSON());
       setState('on');
+      toast('Đã bật thông báo đẩy 🔔', 'success');
     } catch (err) {
       console.error(err);
       setState('off');
-      alert('Không bật được thông báo đẩy.');
+      toast('Không bật được thông báo đẩy.', 'error');
     }
   }
 

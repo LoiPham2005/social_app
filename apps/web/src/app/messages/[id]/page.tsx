@@ -1,29 +1,35 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MessageEntity } from '@social/shared';
-import { Avatar } from '@/components/avatar';
+import { OnlineAvatar } from '@/components/online-avatar';
+import { useConfirm } from '@/components/dialog-provider';
 import { Protected } from '@/components/protected';
 import {
-  fetchConversations,
+  fetchConversationDetail,
   fetchMessages,
+  leaveGroup,
   markConversationRead,
   sendMessageRest,
 } from '@/features/chat/api';
 import { uploadImage } from '@/features/uploads/api';
 import { getSocket } from '@/lib/socket';
 import { useAuthStore } from '@/store/auth-store';
+import { usePresenceStore } from '@/store/presence-store';
 
 function ChatRoom({ conversationId }: { conversationId: string }) {
   const me = useAuthStore((s) => s.user);
   const qc = useQueryClient();
+  const router = useRouter();
+  const confirm = useConfirm();
   const [messages, setMessages] = useState<MessageEntity[]>([]);
   const [text, setText] = useState('');
   const [otherTyping, setOtherTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [otherReadAt, setOtherReadAt] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -34,13 +40,42 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
     queryFn: () => fetchMessages(conversationId),
   });
 
-  // Thông tin người đối thoại (lấy từ danh sách hội thoại)
-  const conversations = useQuery({
-    queryKey: ['conversations'],
-    queryFn: fetchConversations,
+  // Chi tiết hội thoại (tên nhóm / thành viên / người đối thoại)
+  const detail = useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => fetchConversationDetail(conversationId),
   });
-  const other = conversations.data?.find((c) => c.id === conversationId)
-    ?.otherUser;
+  const isGroup = detail.data?.isGroup ?? false;
+  const other = detail.data?.members.find((m) => m.id !== me?.id);
+  const otherOnline = usePresenceStore((s) =>
+    other ? s.online.has(other.id) : false,
+  );
+  const title = isGroup
+    ? (detail.data?.name ?? 'Nhóm')
+    : (other?.fullName ?? 'Trò chuyện');
+  const subtitle = isGroup
+    ? `${detail.data?.members.length ?? 0} thành viên`
+    : otherTyping
+      ? 'đang nhập…'
+      : otherOnline
+        ? 'Đang hoạt động'
+        : '';
+
+  async function handleLeave() {
+    if (
+      await confirm({
+        title: 'Rời nhóm?',
+        message: 'Bạn sẽ không nhận tin nhắn của nhóm này nữa.',
+        confirmText: 'Rời nhóm',
+        danger: true,
+        icon: '🚪',
+      })
+    ) {
+      await leaveGroup(conversationId);
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+      router.replace('/messages');
+    }
+  }
 
   useEffect(() => {
     if (history.data) setMessages(history.data.items);
@@ -65,13 +100,20 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
         setOtherTyping(p.isTyping);
       }
     };
+    const onRead = (p: { conversationId: string; userId: string; at: string }) => {
+      if (p.conversationId === conversationId && p.userId !== me?.id) {
+        setOtherReadAt(p.at);
+      }
+    };
 
     socket.on('message:new', onNew);
     socket.on('typing', onTyping);
+    socket.on('conversation:read', onRead);
     return () => {
       socket.emit('conversation:leave', conversationId);
       socket.off('message:new', onNew);
       socket.off('typing', onTyping);
+      socket.off('conversation:read', onRead);
     };
   }, [conversationId, me?.id, qc]);
 
@@ -116,13 +158,39 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
         <Link href="/messages" className="text-brand">
           ←
         </Link>
-        {other && <Avatar name={other.fullName} url={other.avatarUrl} size={36} />}
-        <div>
-          <p className="font-semibold">{other?.fullName ?? 'Trò chuyện'}</p>
-          {otherTyping && (
-            <p className="text-xs text-brand">đang nhập…</p>
+        {isGroup ? (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand to-indigo-400 text-white">
+            👥
+          </span>
+        ) : (
+          other && (
+            <OnlineAvatar
+              userId={other.id}
+              name={other.fullName}
+              url={other.avatarUrl}
+              size={36}
+            />
+          )
+        )}
+        <div className="flex-1">
+          <p className="font-semibold">{title}</p>
+          {subtitle && (
+            <p
+              className={`text-xs ${otherTyping && !isGroup ? 'text-brand' : 'text-gray-400'}`}
+            >
+              {subtitle}
+            </p>
           )}
         </div>
+        {isGroup && (
+          <button
+            onClick={handleLeave}
+            title="Rời nhóm"
+            className="rounded-lg px-3 py-1.5 text-sm text-gray-500 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            🚪 Rời
+          </button>
+        )}
       </header>
 
       <div className="flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-gray-950">
@@ -143,6 +211,11 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
                     : 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100'
                 }`}
               >
+                {isGroup && !mine && (
+                  <p className="px-4 pt-2 text-xs font-semibold text-brand">
+                    {m.sender.fullName}
+                  </p>
+                )}
                 {m.mediaUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -165,6 +238,14 @@ function ChatRoom({ conversationId }: { conversationId: string }) {
             Hãy gửi lời chào đầu tiên 👋
           </p>
         )}
+        {!isGroup &&
+          messages.length > 0 &&
+          messages[messages.length - 1].sender.id === me?.id &&
+          otherReadAt &&
+          new Date(otherReadAt) >=
+            new Date(messages[messages.length - 1].createdAt) && (
+            <p className="pr-1 text-right text-xs text-gray-400">✓ Đã xem</p>
+          )}
         <div ref={bottomRef} />
       </div>
 

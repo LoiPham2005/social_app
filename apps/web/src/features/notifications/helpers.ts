@@ -47,6 +47,7 @@ export function notificationHref(n: NotificationEntity): string {
       return `/u/${n.actor.username}`;
     case NotificationType.LIKE:
     case NotificationType.COMMENT:
+      return n.targetId ? `/posts/${n.targetId}` : '/feed';
     default:
       return '/feed';
   }

@@ -113,6 +113,36 @@ export class AuthService {
     }
   }
 
+  /** Đổi mật khẩu: xác minh mật khẩu cũ, cập nhật, thu hồi mọi refresh token. */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    const valid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!valid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    await this.revokeAll(userId);
+  }
+
+  /** Thu hồi toàn bộ refresh token (đăng xuất mọi thiết bị). */
+  async revokeAll(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   private async issueTokens(
     userId: string,
     email: string,

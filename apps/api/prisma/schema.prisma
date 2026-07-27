@@ -67,6 +67,8 @@ model User {
   actedNotifications  Notification[]         @relation("Actor")
   refreshTokens       RefreshToken[]
   pushSubscriptions   PushSubscription[]
+  stories             Story[]
+  storyViews          StoryView[]
 
   @@index([createdAt])
 }
@@ -81,6 +83,33 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+model Story {
+  id        String   @id @default(uuid())
+  authorId  String
+  mediaUrl  String
+  caption   String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  views  StoryView[]
+
+  @@index([authorId, expiresAt])
+  @@index([expiresAt])
+}
+
+model StoryView {
+  storyId String
+  userId  String
+  seenAt  DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, userId])
   @@index([userId])
 }
 

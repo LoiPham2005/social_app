@@ -31,6 +31,23 @@ export async function deletePost(id: string): Promise<void> {
   await api.delete(`/posts/${id}`);
 }
 
+export async function updatePost(
+  id: string,
+  data: { content?: string; privacy?: string; mediaUrls?: string[] },
+): Promise<PostEntity> {
+  const { data: res } = await api.patch<PostEntity>(`/posts/${id}`, data);
+  return res;
+}
+
+export async function fetchPost(id: string): Promise<PostEntity> {
+  const { data } = await api.get<PostEntity>(`/posts/${id}`);
+  return data;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  await api.delete(`/posts/comments/${commentId}`);
+}
+
 export async function reactToPost(
   id: string,
   type: ReactionType,

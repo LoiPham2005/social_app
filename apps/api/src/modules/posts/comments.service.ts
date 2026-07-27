@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Comment, User } from '@prisma/client';
 import { NotificationType, type CommentEntity } from '@social/shared';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -45,6 +49,21 @@ export class CommentsService {
       postId,
     );
     return this.mapComment(comment);
+  }
+
+  /** Xóa bình luận: cho phép tác giả bình luận hoặc chủ bài viết. */
+  async deleteComment(userId: string, commentId: string): Promise<void> {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { post: { select: { authorId: true } } },
+    });
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+    if (comment.authorId !== userId && comment.post.authorId !== userId) {
+      throw new ForbiddenException('Không có quyền xóa bình luận này');
+    }
+    await this.prisma.comment.delete({ where: { id: commentId } });
   }
 
   async listByPost(postId: string): Promise<CommentEntity[]> {

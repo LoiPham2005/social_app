@@ -5,11 +5,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ReactionType, type PostEntity } from '@social/shared';
 import { Avatar } from '@/components/avatar';
+import { useConfirm } from '@/components/dialog-provider';
 import { timeAgo } from '@/lib/format';
 import { useAuthStore } from '@/store/auth-store';
 import { CommentSection } from './comment-section';
 import { REACTIONS, ReactionPicker, reactionOf } from './reactions';
-import { deletePost, reactToPost, unreactToPost } from './api';
+import { deletePost, reactToPost, unreactToPost, updatePost } from './api';
 
 const PRIVACY_ICON: Record<string, string> = {
   PUBLIC: '🌍',
@@ -44,11 +45,21 @@ function MediaGrid({ urls }: { urls: string[] }) {
   );
 }
 
-export function PostCard({ post }: { post: PostEntity }) {
+export function PostCard({
+  post,
+  defaultOpenComments = false,
+}: {
+  post: PostEntity;
+  defaultOpenComments?: boolean;
+}) {
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-  const [showComments, setShowComments] = useState(false);
+  const confirm = useConfirm();
+  const [showComments, setShowComments] = useState(defaultOpenComments);
   const [showPicker, setShowPicker] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(post.content);
 
   const liked = post.myReaction != null;
   const myReaction = reactionOf(post.myReaction);
@@ -79,7 +90,15 @@ export function PostCard({ post }: { post: PostEntity }) {
 
   const deleteMutation = useMutation({
     mutationFn: () => deletePost(post.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
+    onSuccess: invalidate,
+  });
+
+  const editMutation = useMutation({
+    mutationFn: () => updatePost(post.id, { content: editText.trim() }),
+    onSuccess: () => {
+      setEditing(false);
+      invalidate();
+    },
   });
 
   const isOwner = currentUser?.id === post.author.id;
@@ -107,22 +126,87 @@ export function PostCard({ post }: { post: PostEntity }) {
             </p>
           </div>
           {isOwner && (
-            <button
-              onClick={() => {
-                if (confirm('Xóa bài viết này?')) deleteMutation.mutate();
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-              title="Xóa bài"
-            >
-              ✕
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+                title="Tùy chọn"
+              >
+                ⋯
+              </button>
+              {menuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-soft dark:border-gray-700 dark:bg-gray-800">
+                    <button
+                      onClick={() => {
+                        setEditing(true);
+                        setEditText(post.content);
+                        setMenuOpen(false);
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      ✏️ Sửa bài
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        if (
+                          await confirm({
+                            title: 'Xóa bài viết?',
+                            message: 'Bài viết sẽ bị xóa vĩnh viễn.',
+                            confirmText: 'Xóa',
+                            danger: true,
+                            icon: '🗑️',
+                          })
+                        ) {
+                          deleteMutation.mutate();
+                        }
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    >
+                      🗑️ Xóa bài
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </header>
 
-        {post.content && (
-          <p className="mt-3 whitespace-pre-wrap leading-relaxed">
-            {post.content}
-          </p>
+        {editing ? (
+          <div className="mt-3">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={3}
+              className="w-full resize-none rounded-xl bg-gray-100 px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand dark:bg-gray-800"
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(false)}
+                className="rounded-lg px-4 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => editMutation.mutate()}
+                disabled={!editText.trim() || editMutation.isPending}
+                className="rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+              >
+                {editMutation.isPending ? 'Đang lưu…' : 'Lưu'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          post.content && (
+            <p className="mt-3 whitespace-pre-wrap leading-relaxed">
+              {post.content}
+            </p>
+          )
         )}
       </div>
 
@@ -199,7 +283,7 @@ export function PostCard({ post }: { post: PostEntity }) {
 
         {showComments && (
           <div className="pb-2">
-            <CommentSection postId={post.id} />
+            <CommentSection postId={post.id} postAuthorId={post.author.id} />
           </div>
         )}
       </div>

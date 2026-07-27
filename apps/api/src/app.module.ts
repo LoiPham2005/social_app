@@ -7,6 +7,7 @@ import { FriendshipsModule } from './modules/friendships/friendships.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { PushModule } from './modules/push/push.module';
+import { StoriesModule } from './modules/stories/stories.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module';
     ChatModule,
     PushModule,
     NotificationsModule,
+    StoriesModule,
   ],
 })
 export class AppModule {}

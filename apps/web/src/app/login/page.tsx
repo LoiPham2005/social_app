@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { LogoMark } from '@/components/logo';
 import {
   DEMO_ACCOUNTS,
   demoLogin,
@@ -39,8 +40,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand/15 via-gray-100 to-blue-200/30 px-4 dark:from-brand/10 dark:via-gray-950 dark:to-gray-900">
       <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-xl dark:bg-gray-900">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-2xl font-black text-white shadow-lg">
-            S
+          <span className="mx-auto mb-3 inline-block">
+            <LogoMark size={64} className="drop-shadow-lg" />
           </span>
           <h1 className="text-2xl font-extrabold text-brand">Social App</h1>
           <p className="mt-1 text-sm text-gray-400">

@@ -23,6 +23,7 @@ const ALLOWED_FOLDERS: UploadFolder[] = [
   'avatars',
   'covers',
   'messages',
+  'stories',
 ];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 

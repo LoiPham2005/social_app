@@ -5,6 +5,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -21,8 +22,13 @@ import { ChatService } from './chat.service';
 @WebSocketGateway({
   cors: { origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000', credentials: true },
 })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(ChatGateway.name);
+
+  /** userId -> số socket đang mở (đa thiết bị). */
+  private readonly online = new Map<string, number>();
 
   @WebSocketServer()
   server!: Server;
@@ -42,12 +48,44 @@ export class ChatGateway implements OnGatewayConnection {
       const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       });
-      client.data.userId = payload.sub;
+      const userId = payload.sub;
+      client.data.userId = userId;
       // Mỗi user có 1 room riêng để nhận cập nhật danh sách hội thoại.
-      client.join(this.userRoom(payload.sub));
+      client.join(this.userRoom(userId));
+
+      // Cập nhật trạng thái online.
+      const count = (this.online.get(userId) ?? 0) + 1;
+      this.online.set(userId, count);
+      // Gửi danh sách người đang online cho client vừa kết nối.
+      client.emit('presence:list', Array.from(this.online.keys()));
+      if (count === 1) {
+        // Vừa online -> báo cho mọi người.
+        this.server.emit('presence', { userId, online: true });
+      }
     } catch {
       client.disconnect();
     }
+  }
+
+  handleDisconnect(client: Socket): void {
+    const userId = client.data.userId as string | undefined;
+    if (!userId) return;
+    const count = (this.online.get(userId) ?? 1) - 1;
+    if (count <= 0) {
+      this.online.delete(userId);
+      this.server.emit('presence', { userId, online: false });
+    } else {
+      this.online.set(userId, count);
+    }
+  }
+
+  /** Bắn sự kiện đã đọc tới các thành viên hội thoại. */
+  emitRead(conversationId: string, userId: string): void {
+    this.server.to(this.convRoom(conversationId)).emit('conversation:read', {
+      conversationId,
+      userId,
+      at: new Date().toISOString(),
+    });
   }
 
   @SubscribeMessage('conversation:join')

@@ -22,6 +22,11 @@ export interface RefreshDto {
   refreshToken: string;
 }
 
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -155,6 +160,18 @@ export interface SendMessageDto {
   mediaUrl?: string | null;
 }
 
+export interface CreateGroupDto {
+  name: string;
+  memberIds: string[];
+}
+
+export interface ConversationDetail {
+  id: string;
+  isGroup: boolean;
+  name: string | null;
+  members: PublicUser[];
+}
+
 /** Payload các sự kiện socket. */
 export interface SocketMessagePayload {
   conversationId: string;
@@ -167,12 +184,40 @@ export interface TypingPayload {
   isTyping: boolean;
 }
 
+// ---- Story ----
+export interface StoryEntity {
+  id: string;
+  author: PublicUser;
+  mediaUrl: string;
+  caption: string | null;
+  createdAt: string;
+  expiresAt: string;
+  seen: boolean;
+}
+
+/** Nhóm story theo tác giả (dùng cho thanh story). */
+export interface StoryGroup {
+  author: PublicUser;
+  stories: StoryEntity[];
+  hasUnseen: boolean;
+}
+
+export interface CreateStoryDto {
+  mediaUrl: string;
+  caption?: string | null;
+}
+
 // ---- Upload ----
 export interface UploadResult {
   url: string;
 }
 
-export type UploadFolder = 'posts' | 'avatars' | 'covers' | 'messages';
+export type UploadFolder =
+  | 'posts'
+  | 'avatars'
+  | 'covers'
+  | 'messages'
+  | 'stories';
 
 // ---- Common ----
 export interface Paginated<T> {

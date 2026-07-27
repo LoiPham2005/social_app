@@ -1,18 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Avatar } from '@/components/avatar';
+import { OnlineAvatar } from '@/components/online-avatar';
 import { Protected } from '@/components/protected';
 import { TopNav } from '@/components/top-nav';
 import { EmptyState } from '@/components/ui';
 import { fetchConversations } from '@/features/chat/api';
+import { CreateGroupModal } from '@/features/chat/create-group-modal';
 import { timeAgo } from '@/lib/format';
 import { getSocket } from '@/lib/socket';
 
 function MessagesContent() {
   const qc = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['conversations'],
     queryFn: fetchConversations,
@@ -33,7 +35,16 @@ function MessagesContent() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
       <TopNav />
       <main className="mx-auto max-w-xl px-4 py-4">
-        <h1 className="mb-3 text-2xl font-bold">Tin nhắn</h1>
+        <div className="mb-3 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Tin nhắn</h1>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark"
+          >
+            ＋ Tạo nhóm
+          </button>
+        </div>
+        {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} />}
         {isLoading && <p className="text-center text-gray-400">Đang tải…</p>}
         {data?.length === 0 && !isLoading && (
           <EmptyState
@@ -49,10 +60,17 @@ function MessagesContent() {
               href={`/messages/${c.id}`}
               className="flex items-center gap-3 rounded-xl p-3 hover:bg-white dark:hover:bg-gray-900"
             >
-              <Avatar
-                name={c.otherUser?.fullName ?? c.name ?? '?'}
-                url={c.otherUser?.avatarUrl}
-              />
+              {c.isGroup ? (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-indigo-400 text-lg text-white">
+                  👥
+                </span>
+              ) : (
+                <OnlineAvatar
+                  userId={c.otherUser?.id}
+                  name={c.otherUser?.fullName ?? c.name ?? '?'}
+                  url={c.otherUser?.avatarUrl}
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <p className="truncate font-semibold">

@@ -1,13 +1,24 @@
 'use client';
 
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Avatar } from '@/components/avatar';
+import { useConfirm } from '@/components/dialog-provider';
 import { timeAgo } from '@/lib/format';
-import { addComment, fetchComments } from './api';
+import { useAuthStore } from '@/store/auth-store';
+import { addComment, deleteComment, fetchComments } from './api';
 
-export function CommentSection({ postId }: { postId: string }) {
+export function CommentSection({
+  postId,
+  postAuthorId,
+}: {
+  postId: string;
+  postAuthorId?: string;
+}) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const me = useAuthStore((s) => s.user);
   const [text, setText] = useState('');
 
   const { data: comments, isLoading } = useQuery({
@@ -15,13 +26,23 @@ export function CommentSection({ postId }: { postId: string }) {
     queryFn: () => fetchComments(postId),
   });
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
+    queryClient.invalidateQueries({ queryKey: ['post', postId] });
+  };
+
   const mutation = useMutation({
     mutationFn: () => addComment(postId, { content: text.trim() }),
     onSuccess: () => {
       setText('');
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      invalidate();
     },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteComment(id),
+    onSuccess: invalidate,
   });
 
   return (
@@ -52,18 +73,53 @@ export function CommentSection({ postId }: { postId: string }) {
         {isLoading && (
           <p className="text-sm text-gray-400">Đang tải bình luận…</p>
         )}
-        {comments?.map((c) => (
-          <div key={c.id} className="flex gap-2">
-            <Avatar name={c.author.fullName} url={c.author.avatarUrl} size={32} />
-            <div className="rounded-2xl bg-gray-100 px-3 py-2 dark:bg-gray-800">
-              <p className="text-sm font-semibold">{c.author.fullName}</p>
-              <p className="text-sm">{c.content}</p>
-              <p className="mt-0.5 text-xs text-gray-400">
-                {timeAgo(c.createdAt)}
-              </p>
+        {comments?.map((c) => {
+          const canDelete =
+            me?.id === c.author.id || me?.id === postAuthorId;
+          return (
+            <div key={c.id} className="group flex gap-2">
+              <Link href={`/u/${c.author.username}`} className="shrink-0">
+                <Avatar
+                  name={c.author.fullName}
+                  url={c.author.avatarUrl}
+                  size={32}
+                />
+              </Link>
+              <div className="rounded-2xl bg-gray-100 px-3 py-2 dark:bg-gray-800">
+                <Link
+                  href={`/u/${c.author.username}`}
+                  className="text-sm font-semibold hover:underline"
+                >
+                  {c.author.fullName}
+                </Link>
+                <p className="text-sm">{c.content}</p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  {timeAgo(c.createdAt)}
+                </p>
+              </div>
+              {canDelete && (
+                <button
+                  onClick={async () => {
+                    if (
+                      await confirm({
+                        title: 'Xóa bình luận?',
+                        confirmText: 'Xóa',
+                        danger: true,
+                        icon: '🗑️',
+                      })
+                    ) {
+                      deleteMut.mutate(c.id);
+                    }
+                  }}
+                  className="self-center text-gray-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100"
+                  title="Xóa bình luận"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {comments?.length === 0 && !isLoading && (
           <p className="text-sm text-gray-400">Chưa có bình luận nào.</p>
         )}

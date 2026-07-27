@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { Message, User } from '@prisma/client';
 import type {
+  ConversationDetail,
   ConversationSummary,
   MessageEntity,
   Paginated,
@@ -60,6 +62,60 @@ export class ChatService {
     return created;
   }
 
+  /** Tạo nhóm chat với tên + danh sách thành viên. */
+  async createGroup(
+    userId: string,
+    name: string,
+    memberIds: string[],
+  ): Promise<{ id: string }> {
+    const uniqueMembers = Array.from(new Set([userId, ...memberIds]));
+    if (uniqueMembers.length < 3) {
+      throw new BadRequestException('Nhóm cần ít nhất 3 thành viên');
+    }
+    const conv = await this.prisma.conversation.create({
+      data: {
+        isGroup: true,
+        name: name.trim() || 'Nhóm mới',
+        members: { create: uniqueMembers.map((id) => ({ userId: id })) },
+      },
+      select: { id: true },
+    });
+    return conv;
+  }
+
+  /** Chi tiết 1 hội thoại (tên + thành viên) cho header. */
+  async getDetail(
+    userId: string,
+    conversationId: string,
+  ): Promise<ConversationDetail> {
+    await this.ensureMember(userId, conversationId);
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { members: { include: { user: true } } },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    return {
+      id: conv.id,
+      isGroup: conv.isGroup,
+      name: conv.name,
+      members: conv.members.map((m) => toPublicUser(m.user)),
+    };
+  }
+
+  /** Rời khỏi nhóm. */
+  async leaveGroup(userId: string, conversationId: string): Promise<void> {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { isGroup: true },
+    });
+    if (!conv?.isGroup) {
+      throw new BadRequestException('Chỉ có thể rời nhóm');
+    }
+    await this.prisma.conversationMember.deleteMany({
+      where: { conversationId, userId },
+    });
+  }
+
   /** Danh sách hội thoại của user, kèm tin cuối + số chưa đọc. */
   async listConversations(userId: string): Promise<ConversationSummary[]> {
     const memberships = await this.prisma.conversationMember.findMany({
@@ -81,8 +137,9 @@ export class ChatService {
     const summaries = await Promise.all(
       memberships.map(async (m) => {
         const conv = m.conversation;
-        const other =
-          conv.members.find((mem) => mem.userId !== userId)?.user ?? null;
+        const other = conv.isGroup
+          ? null
+          : (conv.members.find((mem) => mem.userId !== userId)?.user ?? null);
         const last = conv.messages[0] as MessageWithSender | undefined;
 
         const unreadCount = await this.prisma.message.count({

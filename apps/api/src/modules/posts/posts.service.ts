@@ -138,6 +138,32 @@ export class PostsService {
     return item;
   }
 
+  async updatePost(
+    userId: string,
+    postId: string,
+    data: { content?: string; mediaUrls?: string[]; privacy?: PostPrivacy },
+  ): Promise<PostEntity> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+    if (post.authorId !== userId) {
+      throw new ForbiddenException('Not your post');
+    }
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: {
+        ...(data.content !== undefined ? { content: data.content } : {}),
+        ...(data.mediaUrls !== undefined ? { mediaUrls: data.mediaUrls } : {}),
+        ...(data.privacy !== undefined ? { privacy: data.privacy } : {}),
+      },
+    });
+    return this.getPost(userId, postId);
+  }
+
   async deletePost(userId: string, postId: string): Promise<void> {
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post) {

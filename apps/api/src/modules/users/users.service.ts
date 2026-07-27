@@ -77,6 +77,10 @@ export class UsersService {
     return toPublicUser(user);
   }
 
+  async deleteAccount(userId: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id: userId } });
+  }
+
   async search(query: string, limit = 20): Promise<PublicUser[]> {
     const users = await this.prisma.user.findMany({
       where: {

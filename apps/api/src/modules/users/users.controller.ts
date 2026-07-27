@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Query,
@@ -34,6 +37,14 @@ export class UsersController {
     @Body() dto: UpdateProfileDto,
   ): Promise<PublicUser> {
     return this.usersService.updateProfile(userId, dto);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  deleteMe(@CurrentUser('id') userId: string): Promise<void> {
+    return this.usersService.deleteAccount(userId);
   }
 
   @Get(':username/profile')

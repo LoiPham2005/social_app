@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type {
+  ConversationDetail,
   ConversationSummary,
   MessageEntity,
   Paginated,
@@ -20,6 +21,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
+import { CreateGroupDto } from './dto/create-group.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 
 @ApiTags('chat')
@@ -45,6 +47,31 @@ export class ChatController {
     return this.chat.getOrCreateDirect(userId, otherUserId);
   }
 
+  @Post('group')
+  createGroup(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateGroupDto,
+  ): Promise<{ id: string }> {
+    return this.chat.createGroup(userId, dto.name, dto.memberIds);
+  }
+
+  @Get(':id')
+  detail(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ConversationDetail> {
+    return this.chat.getDetail(userId, id);
+  }
+
+  @Post(':id/leave')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  leave(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    return this.chat.leaveGroup(userId, id);
+  }
+
   @Get(':id/messages')
   messages(
     @CurrentUser('id') userId: string,
@@ -68,10 +95,11 @@ export class ChatController {
 
   @Post(':id/read')
   @HttpCode(HttpStatus.NO_CONTENT)
-  markRead(
+  async markRead(
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
-    return this.chat.markRead(userId, id);
+    await this.chat.markRead(userId, id);
+    this.gateway.emitRead(id, userId);
   }
 }

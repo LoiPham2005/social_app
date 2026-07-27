@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -24,6 +25,7 @@ import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreatePostDto } from './dto/create-post.dto';
 import { ReactDto } from './dto/react.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { PostsService } from './posts.service';
 
 @ApiTags('posts')
@@ -77,6 +79,15 @@ export class PostsController {
     return this.postsService.getPost(userId, id);
   }
 
+  @Patch(':id')
+  update(
+    @CurrentUser('id') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePostDto,
+  ): Promise<PostEntity> {
+    return this.postsService.updatePost(userId, id, dto);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(
@@ -84,6 +95,15 @@ export class PostsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     return this.postsService.deletePost(userId, id);
+  }
+
+  @Delete('comments/:commentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteComment(
+    @CurrentUser('id') userId: string,
+    @Param('commentId', ParseUUIDPipe) commentId: string,
+  ): Promise<void> {
+    return this.commentsService.deleteComment(userId, commentId);
   }
 
   @Put(':id/reaction')
